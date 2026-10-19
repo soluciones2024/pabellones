@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Pabellón Quirúrgico</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Librería para el escáner de códigos de barra y QR -->
+    <script src="https://unpkg.com"></script>
+</head>
+<body>
+    <header>
+        <h1>🏥 Sistema de Gestión de Pabellones</h1>
+        <nav>
+            <button onclick="cambiarVista('pabellones')" class="btn-nav active" id="nav-pabellones">📋 Quirófanos</button>
+            <button onclick="cambiarVista('procedimientos')" class="btn-nav" id="nav-procedimientos">📅 Agendar</button>
+            <button onclick="cambiarVista('pacientes')" class="btn-nav" id="nav-pacientes">👤 Pacientes</button>
+            <button onclick="cambiarVista('doctores')" class="btn-nav" id="nav-doctores">🥼 Doctores</button>
+            <button onclick="cambiarVista('inventario')" class="btn-nav" id="nav-inventario">📦 Inventario</button>
+            <button onclick="cambiarVista('recetas')" class="btn-nav" id="nav-recetas">📄 Recetas</button>
+            <button onclick="cambiarVista('compras')" class="btn-nav" id="nav-compras">🛒 Compras</button>
+            <button onclick="cambiarVista('consumos')" class="btn-nav" id="nav-consumos">📊 Gasto</button>
+            <button onclick="cambiarVista('respaldos')" class="btn-nav" id="nav-respaldos">💾 Respaldo</button>
+            <button onclick="reiniciarBaseDatos()" class="btn-nav btn-reset" style="color: #dc2626; font-weight: bold; margin-left: 20px;">⚠️ Reiniciar</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- SECCIÓN 1: GESTIÓN Y OPERACIÓN DE PABELLONES -->
+        <section id="vista-pabellones" class="modulo-vista">
+            <div class="selector-pabellon">
+                <button onclick="seleccionarPabellon(1)" id="btn-p1" class="btn-tab active">Pabellón 1</button>
+                <button onclick="seleccionarPabellon(2)" id="btn-p2" class="btn-tab">Pabellón 2</button>
+            </div>
+
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Programar / Cambiar Cirugía Activa</h3>
+                    <form id="form-cirugia" onsubmit="programarCirugia(event)">
+                        <label>Nombre de la Cirugía:</label>
+                        <input type="text" id="cirugia-nombre" placeholder="Ej: Apendicetomía" required>
+                        
+                        <label>Especialidad:</label>
+                        <input type="text" id="cirugia-especialidad" placeholder="Ej: General" required>
+                        
+                        <label>Paciente:</label>
+                        <select id="cirugia-paciente" required></select>
+                        
+                        <label>Cirujano Responsable:</label>
+                        <select id="cirugia-doctor" required></select>
+                        
+                        <label>Tiempo Estimado (mins):</label>
+                        <input type="number" id="cirugia-tiempo" placeholder="Ej: 90" required>
+                        
+                        <button type="submit" class="btn-primario">Establecer Cirugía Activa</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>Cirugía en Curso</h3>
+                    <div id="info-cirugia-activa"></div>
+
+                    <div id="operacion-insumos" style="display:none;">
+                        <hr>
+                        <h4>Escanear / Registrar Insumo</h4>
+                        <div id="lector-barra" style="width: 100%; max-width: 300px; margin: 10px auto;"></div>
+                        
+                        <div class="form-rapido">
+                            <input type="text" id="codigo-manual" placeholder="Código de barra o ID Insumo">
+                            <input type="number" id="cant-usada" value="1" min="1" style="width: 60px;">
+                            <button onclick="registrarConsumoManual()" class="btn-secundario">Agregar</button>
+                        </div>
+                        
+                        <h4>Materiales Consumidos en esta Intervención</h4>
+                        <table class="tabla-app">
+                            <thead>
+                                <tr><th>Insumo</th><th>Usado</th><th>Desechado</th></tr>
+                            </thead>
+                            <tbody id="tabla-consumo-actual"></tbody>
+                        </table>
+                        <br>
+                        <button onclick="finalizarCirugia()" class="btn-peligro">Finalizar Cirugía (Cerrar Gasto)</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- SECCIÓN 2: INGRESO DE PROCEDIMIENTOS -->
+        <section id="vista-procedimientos" class="modulo-vista" style="display: none;">
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Agendar Nueva Intervención</h3>
+                    <form id="form-procedimiento" onsubmit="guardarProcedimientoProgramado(event)">
+                        <label>Nombre de la Cirugía / Procedimiento:</label>
+                        <input type="text" id="proc-nombre" placeholder="Ej: Colecistectomía" required>
+                        <label>Fecha de la Intervención:</label>
+                        <input type="date" id="proc-fecha" required>
+                        <label>Hora de Inicio:</label>
+                        <input type="time" id="proc-hora" required>
+                        <label>Pabellón Asignado:</label>
+                        <select id="proc-pabellon" required>
+                            <option value="1">Pabellón 1</option>
+                            <option value="2">Pabellón 2</option>
+                        </select>
+                        <label>Paciente:</label>
+                        <select id="proc-paciente" required></select>
+                        <label>Médico Cirujano:</label>
+                        <select id="proc-doctor" required></select>
+
+                        <label style="margin-top: 20px; font-weight: bold; display: block; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">Seleccionar Implementos a Utilizar (Rebaja 1 unidad de stock):</label>
+                        <div id="contenedor-checkboxes-insumos" style="max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 10px; background: #fff;"></div>
+
+                        <button type="submit" class="btn-primario" style="margin-top: 20px;">📅 Agendar y Descontar Bodega</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin:0; border:none; padding:0;">Cronograma de Pabellones</h3>
+                        <button type="button" onclick="imprimirSeccion('tabla-agenda-body', 'CRONOGRAMA QUIRÚRGICO DE PABELLONES')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.9rem;">🖨️ Imprimir Agenda</button>
+                    </div>
+                    <table class="tabla-app">
+                        <thead>
+                            <tr><th>Fecha / Hora</th><th>Pabellón</th><th>Cirugía</th><th>Paciente / Médico</th></tr>
+                        </thead>
+                        <tbody id="tabla-agenda-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- SECCIÓN 3: MANTENEDOR DE PACIENTES -->
+        <section id="vista-pacientes" class="modulo-vista" style="display: none;">
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Registrar / Modificar Paciente</h3>
+                    <form id="form-paciente" onsubmit="guardarPaciente(event)">
+                        <label>RUT / ID Único:</label>
+                        <input type="text" id="paciente-rut" placeholder="Ej: 12345678-9" required>
+                        <label>Nombre Completo:</label>
+                        <input type="text" id="paciente-nombre" placeholder="Ej: Juan Pérez" required>
+                        <label>Edad:</label>
+                        <input type="number" id="paciente-edad" required>
+                        <label>Dirección:</label>
+                        <input type="text" id="paciente-direccion" placeholder="Ej: Av. Dos Sur 1245" required>
+                        <label>Región:</label>
+                        <select id="paciente-region" onchange="actualizarComunasDinámicas(this.value)" required>
+                            <option value="">-- Seleccione una Región --</option>
+                            <option value="Arica y Parinacota">Arica y Parinacota</option>
+                            <option value="Tarapacá">Tarapacá</option>
+                            <option value="Antofagasta">Antofagasta</option>
+                            <option value="Atacama">Atacama</option>
+                            <option value="Coquimbo">Coquimbo</option>
+                            <option value="Valparaíso">Valparaíso</option>
+                            <option value="Metropolitana">Metropolitana</option>
+                            <option value="O'Higgins">O'Higgins</option>
+                            <option value="Maule">Maule</option>
+                            <option value="Ñuble">Ñuble</option>
+                            <option value="Bío Bío">Bío Bío</option>
+                            <option value="Araucanía">Araucanía</option>
+                            <option value="Los Ríos">Los Ríos</option>
+                            <option value="Los Lagos">Los Lagos</option>
+                            <option value="Aysén">Aysén</option>
+                            <option value="Magallanes">Magallanes</option>
+                        </select>
+                        <label>Ciudad / Comuna:</label>
+                        <select id="paciente-ciudad" required>
+                            <option value="">-- Primero seleccione Región --</option>
+                        </select>
+                        <label>Teléfono de Contacto:</label>
+                        <input type="tel" id="paciente-telefono" placeholder="Ej: +56912345678" required>
+                        <label>Correo Electrónico:</label>
+                        <input type="email" id="paciente-correo" placeholder="Ej: juan.perez@email.com" required>
+                        <label>Previsión / Alertas Médicas:</label>
+                        <input type="text" id="paciente-alerta" placeholder="Ej: Alérgico a la Penicilina">
+                        <button type="submit" class="btn-primario">Registrar Paciente</button>
+                    </form>
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--borde);">
+                        <label style="font-weight: bold; margin-bottom: 5px;">📥 Carga Masiva (Archivo .CSV):</label>
+                        <button type="button" onclick="descargarPlantillaPacientes()" class="btn-mini" style="background-color: #16a34a; color: white; width: 100%; padding: 8px; margin-bottom: 12px; font-size: 0.85rem;">📄 Descargar Plantilla Excel (CSV)</button>
+                        <input type="file" id="csv-pacientes" accept=".csv" style="padding: 5px; font-size: 0.85rem; margin-bottom: 8px;">
+                        <button type="button" onclick="cargarCsvPacientes()" class="btn-secundario" style="width: 100%; background-color: #475569; padding: 8px;">Procesar CSV Pacientes</button>
+                        <small style="display:block; margin-top:5px; color:var(--texto-mutado);">Layout: RUT;Nombre;Edad;Direccion;Region;Ciudad;Telefono;Correo;Alertas</small>
+                    </div>
+                </div>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+                        <h3 style="margin:0; border:none; padding:0;">Fichero de Pacientes</h3>
+                        <button type="button" onclick="imprimirSeccion('tabla-pacientes-body', 'FICHERO GENERAL DE PACIENTES')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.9rem;">🖨️ Imprimir Fichero</button>
+                    </div>
+                    <input type="text" id="buscar-paciente" placeholder="🔍 Buscar por RUT o Nombre..." onkeyup="filtrarPacientes(this.value)" style="margin-bottom: 15px; padding: 10px;">
+                    <table class="tabla-app">
+                        <thead>
+                            <tr><th>RUT/ID</th><th>Nombre / Edad</th><th>Contacto</th><th>Ubicación</th><th>Detalles Médicos</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody id="tabla-pacientes-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- SECCIÓN 4: MANTENEDOR DE DOCTORES -->
+        <section id="vista-doctores" class="modulo-vista" style="display: none;">
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Registrar Nuevo Médico</h3>
+                    <form id="form-doctor" onsubmit="guardarDoctor(event)">
+                        <label>Matrícula / ID Profesional:</label>
+                        <input type="text" id="doctor-id" placeholder="Ej: MED-4550" required>
+                        <label>Nombre Médico:</label>
+                        <input type="text" id="doctor-nombre" placeholder="Ej: Dra. María Plaza" required>
+                        <label>Especialidad Principal:</label>
+                        <input type="text" id="doctor-especialidad" placeholder="Ej: Traumatología" required>
+                        <button type="submit" class="btn-primario">Registrar Profesional</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+                        <h3 style="margin:0; border:none; padding:0;">Staff Médico</h3>
+                        <button type="button" onclick="imprimirSeccion('tabla-doctores-body', 'STAFF MÉDICO DE QUIRÓFANOS')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.9rem;">🖨️ Imprimir Staff</button>
+                    </div>
+                    <input type="text" id="buscar-doctor" placeholder="🔍 Buscar por ID o Nombre..." onkeyup="filtrarDoctores(this.value)" style="margin-bottom: 15px; padding: 10px;">
+                    <table class="tabla-app">
+                        <thead>
+                            <tr><th>ID</th><th>Nombre</th><th>Especialidad</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody id="tabla-doctores-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 5: INVENTARIO DE INSUMOS -->
+        <section id="vista-inventario" class="modulo-vista" style="display: none;">
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Ingresar / Modificar Insumo</h3>
+                    <div id="lector-bodega" style="width: 100%; max-width: 300px; margin: 10px auto; display: none;"></div>
+                    <button type="button" onclick="alternarEscanerBodega()" class="btn-secundario" style="width: 100%; margin-bottom: 15px; background-color: var(--primario);">📷 Escanear Código de Barra</button>
+                    <form id="form-inventario" onsubmit="guardarInsumo(event)">
+                        <label>Código de Barra / ID Único:</label>
+                        <input type="text" id="insumo-id" placeholder="Ej: 780123456" required onchange="buscarYFiltarInsumoManual(this.value)">
+                        <label>Nombre:</label>
+                        <input type="text" id="insumo-nombre" placeholder="Ej: Gasas Estériles 10x10" required>
+                        <label>Categoría:</label>
+                        <select id="insumo-categoria">
+                            <option value="Desechable">Desechable</option>
+                            <option value="Instrumental">Instrumental</option>
+                            <option value="Medicamento">Medicamento</option>
+                        </select>
+                        <label>Número de Lote:</label>
+                        <input type="text" id="insumo-lote" placeholder="Ej: LT-2026-X" required>
+                        <label>Fecha de Vencimiento:</label>
+                        <input type="date" id="insumo-vencimiento" required>
+                        <label>Stock Actual:</label>
+                        <input type="number" id="insumo-stock" required>
+                        <label>Stock Mínimo (Alerta):</label>
+                        <input type="number" id="insumo-minimo" required>
+                        <label>Ubicación en Bodega:</label>
+                        <input type="text" id="insumo-ubicacion" placeholder="Ej: Estante A-3">
+                        <button type="submit" class="btn-primario">Guardar en Bodega</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+                        <h3 style="margin:0; border:none; padding:0;">Existencias y Alertas de Bodega</h3>
+                        <button type="button" onclick="imprimirInventario('tabla-inventario-body', 'REPORTE GENERAL DE EXISTENCIAS Y ALERTAS SANITARIAS')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.9rem;">🖨️ Imprimir Inventario</button>
+                    </div>
+                    <input type="text" id="buscar-insumo" placeholder="🔍 Buscar por Código, Nombre, Lote o Ubicación..." onkeyup="filtrarInventario(this.value)" style="margin-bottom: 15px; padding: 10px;">
+                    <table class="tabla-app">
+                        <thead>
+                            <tr><th>Código</th><th>Nombre e Info Suministro</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody id="tabla-inventario-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- SECCIÓN 6: RECETAS / KITS ESTÁNDAR -->
+        <section id="vista-recetas" class="modulo-vista" style="display: none;">
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Asociar Insumo a una Cirugía (Plantilla)</h3>
+                    <form id="form-receta" onsubmit="guardarReceta(event)">
+                        <label>Nombre Exacto de la Cirugía:</label>
+                        <input type="text" id="receta-cirugia" placeholder="Ej: Apendicetomía" required>
+                        <label>Código de Insumo Necesario:</label>
+                        <input type="text" id="receta-insumo" placeholder="Ej: 780123456" required>
+                        <label>Cantidad Estándar Requerida:</label>
+                        <input type="number" id="receta-cantidad" value="1" min="1" required>
+                        <button type="submit" class="btn-primario">Vincular a Receta</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+                        <h3 style="margin:0; border:none; padding:0;">Plantillas Quirúrgicas Configuradas</h3>
+                        <button type="button" onclick="imprimirRecetas('tabla-recetas-body', 'PLANTILLAS Y KITS QUIRÚRGICOS ESTÁNDAR')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.9rem;">🖨️ Imprimir Recetas</button>
+                    </div>
+                    <table class="tabla-app">
+                        <thead>
+                            <tr><th>Cirugía</th><th>Insumo Requerido</th><th>Cant. Requerida</th></tr>
+                        </thead>
+                        <tbody id="tabla-recetas-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 7: MÓDULO DE COMPRAS Y ABASTECIMIENTO -->
+        <section id="vista-compras" class="modulo-vista" style="display: none;">
+            <div class="selector-pabellon" style="margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <button type="button" onclick="cambiarSubVistaCompras('ordenes')" id="btn-sub-oc" class="btn-tab active" style="font-size:0.9rem; padding:8px 20px;">📋 Órdenes de Compra</button>
+                <button type="button" onclick="cambiarSubVistaCompras('facturas')" id="btn-sub-fact" class="btn-tab" style="font-size:0.9rem; padding:8px 20px;">🧾 Ingreso por Factura / Barra</button>
+            </div>
+            <div id="sub-vista-ordenes" class="sub-modulo-compras">
+                <div class="grid-pabellon">
+                    <div class="card">
+                        <h3>Generar Orden de Abastecimiento</h3>
+                        <form id="form-compra" onsubmit="guardarOrdenCompra(event)">
+                            <label>Insumo a Adquirir:</label>
+                            <select id="compra-insumo-id" required></select>
+                            <label>Cantidad a Solicitar:</label>
+                            <input type="number" id="compra-cantidad" min="1" required>
+                            <label>Proveedor:</label>
+                            <input type="text" id="compra-proveedor" placeholder="Ej: Laboratorio Chile" required>
+                            <button type="submit" class="btn-primario">Emitir Orden de Compra</button>
+                        </form>
+                    </div>
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin:0; border:none; padding:0;">Órdenes Emitidas</h3>
+                            <button type="button" onclick="imprimirCompras('tabla-compras-body', 'REPORTE DE ÓRDENES DE COMPRA')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.85rem;">🖨️ Imprimir</button>
+                        </div>
+                        <table class="tabla-app">
+                            <thead>
+                                <tr><th>OC ID</th><th>Insumo</th><th>Cant.</th><th>Proveedor</th><th>Estado</th><th>Acción</th></tr>
+                            </thead>
+                            <tbody id="tabla-compras-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="sub-vista-facturas" class="sub-modulo-compras" style="display: none;">
+                <div class="grid-pabellon">
+                    <div class="card">
+                        <h3>Mantenedor: Ingreso de Facturas</h3>
+                        <div id="lector-factura" style="width: 100%; max-width: 300px; margin: 10px auto; display: none;"></div>
+                        <button type="button" onclick="alternarEscanerFactura()" class="btn-secundario" style="width: 100%; margin-bottom: 15px; background-color: var(--primario);">📷 Escanear Código de Insumo</button>
+                        <form id="form-factura" onsubmit="guardarIngresoFactura(event)">
+                            <label>Número de Factura:</label>
+                            <input type="text" id="factura-numero" placeholder="Ej: F-18442" required>
+                            <label>Código de Barra / ID Insumo:</label>
+                            <input type="text" id="factura-insumo-id" placeholder="Escanee o digite código" required onchange="verificarInsumoFactura(this.value)">
+                            <span id="factura-insumo-nombre" style="font-size:0.85rem; font-weight:bold; color:var(--primario); display:block; margin-bottom:10px;"></span>
+                            <label>Cantidad Recibida:</label>
+                            <input type="number" id="factura-cantidad" min="1" required>
+                            <label>Precio Unitario de Compra ($):</label>
+                            <input type="number" id="factura-precio" min="0" placeholder="Ej: 4500" required>
+                            <button type="submit" class="btn-primario" style="background-color: var(--exito);">📥 Registrar Factura</button>
+                        </form>
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--borde);">
+                            <label style="font-weight: bold; margin-bottom: 5px;">📥 Carga Masiva Facturas (.CSV):</label>
+                            <button type="button" onclick="descargarPlantillaFacturas()" class="btn-mini" style="background-color: #16a34a; color: white; width: 100%; padding: 8px; margin-bottom: 12px; font-size: 0.85rem;">📄 Descargar Plantilla Excel (CSV)</button>
+                            <input type="file" id="csv-facturas" accept=".csv" style="padding: 5px; font-size: 0.85rem; margin-bottom: 8px;">
+                            <button type="button" onclick="cargarCsvFacturas()" class="btn-secundario" style="width: 100%; background-color: #475569; padding: 8px;">Procesar CSV Facturas</button>
+                            <small style="display:block; margin-top:5px; color:var(--texto-mutado);">Layout: NumFactura;ID_Insumo;Cantidad;PrecioUnitario</small>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin:0; border:none; padding:0;">Listado de Facturas Ingresadas</h3>
+                            <button type="button" onclick="imprimirFacturas('tabla-facturas-body', 'REPORTE HISTÓRICO DE FACTURAS E INGRESO DE MATERIAL')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.85rem;">🖨️ Imprimir Listado</button>
+                        </div>
+                        <table class="tabla-app">
+                            <thead>
+                                <tr><th>N° Factura</th><th>Insumo</th><th>Cant.</th><th>Precio U.</th><th>Fecha Reg.</th></tr>
+                            </thead>
+                            <tbody id="tabla-facturas-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 8: HISTORIAL DE CONSUMO GENERAL -->
+        <section id="vista-consumos" class="modulo-vista" style="display: none;">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+                    <h3 style="margin: 0; border: none; padding: 0;">Registro Histórico de Gastos (Post-Operatorio)</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" onclick="imprimirGastos('tabla-historico-body', 'REPORTE HISTÓRICO DE CONSUMOS EN PABELLÓN')" class="btn-secundario" style="background-color: #64748b; padding: 6px 12px; font-size: 0.9rem;">🖨️ Imprimir Historial</button>
+                        <button type="button" onclick="exportarHistorialCSV()" class="btn-secundario" style="background-color: #16a34a; padding: 6px 12px; font-size: 0.9rem;">📥 Exportar a Excel (CSV)</button>
+                    </div>
+                </div>
+                <table class="tabla-app">
+                    <thead>
+                        <tr><th>ID Registro</th><th>ID Cirugía</th><th>Insumo</th><th>Lote</th><th>Utilizado</th><th>Desechado</th></tr>
+                    </thead>
+                    <tbody id="tabla-historico-body"></tbody>
+                </table>
+            </div>
+        </section>
+        <!-- SECCIÓN 9: MÓDULO DE RESPALDOS Y SEGURIDAD -->
+        <section id="vista-respaldos" class="modulo-vista" style="display: none;">
+            <div class="grid-pabellon">
+                <div class="card">
+                    <h3>Copia de Seguridad del Sistema</h3>
+                    <p style="color: var(--texto-mutado); font-size: 0.9rem; margin-bottom: 20px;">
+                        El sistema genera un **respaldo automático** en la memoria interna cada vez que registras datos. Desde aquí puedes descargar un archivo físico externo para resguardar toda la clínica.
+                    </p>
+                    <div id="info-ultimo-respaldo" style="margin-bottom: 20px; font-weight: bold; color: var(--primario);"></div>
+                    <button type="button" onclick="descargarRespaldoFisicoJSON()" class="btn-primario" style="background-color: #16a34a;">📥 Descargar Respaldo Completo (.JSON)</button>
+                </div>
+                <div class="card">
+                    <h3>Restaurar Base de Datos</h3>
+                    <p style="color: var(--texto-mutado); font-size: 0.9rem; margin-bottom: 20px;">
+                        Seleccione un archivo de respaldo anterior `.json` para restaurar por completo los pacientes, doctores, cirugías, inventario e historiales de gasto en este equipo.
+                    </p>
+                    <label style="font-weight: bold; margin-bottom: 8px; display: block;">Seleccionar Archivo de Respaldo:</label>
+                    <input type="file" id="archivo-respaldo-json" accept=".json" style="padding: 10px; border: 1px solid var(--borde); border-radius: 6px; width: 100%; margin-bottom: 15px;">
+                    <button type="button" onclick="restaurarBaseDatosDesdeJSON()" class="btn-peligro" style="background-color: #f59e0b;">📤 Restaurar y Sobrescribir Sistema</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
